@@ -12,6 +12,10 @@
     "vite": "^7.3.1"
   },
   "dependencies": {
-    "@mmote/niimbluelib": "0.0.1-alpha.37"
+    "@mmote/niimbluelib": "file:.."
+  },
+  "allowScripts": {
+    "esbuild@0.27.7": true,
+    "fsevents@2.3.3": true
   }
 }

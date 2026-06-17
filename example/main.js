@@ -5,6 +5,7 @@ import {
   NiimbotBluetoothClient,
   ImageEncoder,
   NiimbotSerialClient,
+  LabelType,
 } from "@mmote/niimbluelib";
 
 let client = null;
@@ -55,6 +56,8 @@ const newClient = (transport) => {
   } else if (transport === "serial") {
     client = new NiimbotSerialClient();
   }
+
+  client.setPacketInterval(2);
 
   client.on("packetsent", (e) => {
     logger(`>> ${Utils.bufToHex(e.packet.toBytes())} (${RequestCommandId[e.packet.command]})`);
@@ -115,8 +118,8 @@ serialConnectButton.onclick = async () => {
 
 /** On "Print" clicked */
 printButton.onclick = async () => {
-  /** left or top */
-  const printDirection = "left";
+  /** left or top — B1 Pro defaults to "top" per printer_models.ts */
+  const printDirection = "top";
   const quantity = 1;
 
   /** Convert image to black and white bits */
@@ -129,6 +132,7 @@ printButton.onclick = async () => {
     totalPages: quantity,
     statusPollIntervalMs: 100,
     statusTimeoutMs: 8_000,
+    labelType: LabelType.Black,
   });
 
   try {
