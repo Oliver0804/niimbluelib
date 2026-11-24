@@ -6,6 +6,7 @@ import { D110PrintTask } from "./D110PrintTask";
 import { OldD11PrintTask } from "./OldD11PrintTask";
 import { D110MV4PrintTask } from "./D110MV4PrintTask";
 import { H1SPrintTask } from "./H1SPrintTask";
+import { OfficialV6PrintTask } from "./OfficialV6PrintTask";
 
 /**
  * @category Print tasks
@@ -28,6 +29,8 @@ export const printTasks = {
   B21_L2B: B21L2BPrintTask,
   D110M_V4: D110MV4PrintTask,
   H1S: H1SPrintTask,
+  /** Official SDK cPrinterV6 flow (fork, experimental, not auto-selected) */
+  V6: OfficialV6PrintTask,
 };
 
 /**
@@ -58,6 +61,7 @@ export const printTasksCapabilities: Record<PrintTaskName, PrintTaskCapability[]
     PrintTaskCapability.SupportGrayscale,
   ],
   H1S: [],
+  V6: [],
 };
 
 /** @category Printer model library */
@@ -107,4 +111,4 @@ export const findPrintTask = (model: M, protocolVersion?: number): PrintTaskName
 };
 
 export { AbstractPrintTask, PrintOptions } from "./AbstractPrintTask";
-export { B1PrintTask, B21V1PrintTask, D110PrintTask, OldD11PrintTask, D110MV4PrintTask, B21L2BPrintTask, H1SPrintTask };
+export { B1PrintTask, B21V1PrintTask, D110PrintTask, OldD11PrintTask, D110MV4PrintTask, B21L2BPrintTask, H1SPrintTask, OfficialV6PrintTask };

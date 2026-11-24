@@ -314,6 +314,9 @@ export abstract class NiimbotAbstractClient extends EventEmitter<ClientEventMap>
     this.printerInfo.connectResult = result.connectResult;
     this.printerInfo.protocolVersion = result.protocolVersion;
     this.printerInfo.supportColor = result.supportColor;
+    this.printerInfo.officialClass = result.officialClass;
+    this.printerInfo.blockRows = result.blockRows;
+    this.printerInfo.cacheRows = result.cacheRows;
   }
 
   /**

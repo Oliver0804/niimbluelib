@@ -16,6 +16,7 @@ import {
   NiimbotPacket16,
   twoByteLengthPackets,
 } from ".";
+import { officialPrinterClass } from "./dto";
 import { Utils, Validators } from "../utils";
 
 /**
@@ -144,7 +145,14 @@ export class PacketParser {
       supportColor: false,
     };
 
+    if (packet.dataLength >= 6) {
+      result.cacheRows = (packet.data[2] << 8) | packet.data[3];
+      result.blockRows = (packet.data[4] << 8) | packet.data[5];
+    }
+
     if (packet.dataLength >= 13) {
+      result.versionMajor = packet.data[11];
+      result.versionMinor = packet.data[12];
       result.supportColor = packet.data[10] > 0;
 
       const n = packet.data[11] * 100 + packet.data[12];
@@ -157,6 +165,8 @@ export class PacketParser {
         result.protocolVersion = 5;
       }
     }
+
+    result.officialClass = officialPrinterClass(3, result.versionMajor, result.versionMinor);
 
     return result;
   }
@@ -204,7 +214,12 @@ export class PacketParser {
       info.uuid2 = Utils.bufToHex(r.readBytes(8), "");
     }
 
-    r.end();
+    // Official SDK (rfiddatapro) reads classCode u32 BE when enough bytes are left
+    if (r.canRead(4)) {
+      info.classCode = r.readU32();
+    }
+
+    // No r.end(): tolerate fields appended by newer firmware
 
     return info;
   }
@@ -292,20 +307,24 @@ export class PacketParser {
     info.ribbonRfidSuccess = r.readU8() !== 0;
     info.ribbonInserted = r.readU8() === 0;
 
-    if (r.canRead(2)) {
-      info.wifiRssi = r.readU16();
-    }
+    // Remaining fields by official SDK offsets (cPrinterV5/V6 heartbeat parser)
+    const d = packet.data;
 
     if (r.canRead(2)) {
-      r.skip(1);
-      info.lightingErrorCode = r.readU8();
+      info.wifiRssi = r.readI16(); // signed in the official SDK
     }
 
-    if (r.canRead(1)) {
-      info.voltageState = r.readU8();
+    if (d.length > 12) {
+      info.firmwareUpgradeStatus = d[11];
+      info.lightingErrorCode = d[12];
     }
+    if (d.length > 13) info.voltageState = d[13];
+    if (d.length > 14) info.cutterStatus = d[14];
+    if (d.length > 15) info.wifiUpgradeStatus = d[15];
+    if (d.length > 16) info.bluetoothUpgradeStatus = d[16];
+    if (d.length > 18) info.faultEventFrames = d[18];
 
-    r.end();
+    // No r.end(): V6 firmware may send up to 19+ bytes
 
     if (info.batteryPercents <= 4) {
       info.batteryPercents *= 25;

@@ -24,6 +24,7 @@ import {
   PrintStatus,
   RfidInfo,
 } from "./dto";
+import { officialPrinterClass } from "./dto";
 import { NiimbotCrc32Packet, NiimbotPacket } from "./packet";
 import { PacketGenerator } from "./packet_generator";
 import CRC32 from "crc-32";
@@ -331,6 +332,11 @@ export class NiimbotProtocol {
       const statusData = await this.getPrinterStatusData();
       result.protocolVersion = statusData.protocolVersion;
       result.supportColor = statusData.supportColor;
+      result.officialClass = statusData.officialClass;
+      result.blockRows = statusData.blockRows;
+      result.cacheRows = statusData.cacheRows;
+    } else {
+      result.officialClass = officialPrinterClass(result.connectResult);
     }
 
     return result;
