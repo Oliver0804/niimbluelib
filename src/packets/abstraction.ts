@@ -24,6 +24,53 @@ import CRC32 from "crc-32";
  *
  * @category Packets
  */
+/**
+ * Parse RFID info payload (In_RfidInfo 0x1B / In_RfidInfo2 0x1D).
+ *
+ * Field order follows the official SDK `rfiddatapro()` (libjcPrinterSdk, shared by cPrinterV3/V6):
+ * UUID(8) · barcode(vstr) · batchNumber(vstr) · qestrictionNumber(u16) · usedNumber(u16) · paperType(u8)
+ * · ratedCapacity(u16, opt) · UUID2(8, opt) · classCode(u32, opt).
+ * All integers are big endian and unsigned. Trailing bytes are ignored so newer firmware fields don't break parsing.
+ *
+ * @category Packets
+ */
+export const parseRfidInfo = (data: Uint8Array): RfidInfo => {
+  const info: RfidInfo = {
+    tagPresent: false,
+    uuid: "",
+    barCode: "",
+    serialNumber: "",
+    allPaper: -1,
+    usedPaper: -1,
+    consumablesType: LabelType.Invalid,
+  };
+
+  if (data.length <= 1) {
+    return info;
+  }
+
+  const r = new SequentialDataReader(data);
+  info.tagPresent = true;
+  info.uuid = Utils.bufToHex(r.readBytes(8), "");
+  info.barCode = r.readVString();
+  info.serialNumber = r.readVString();
+  info.allPaper = r.readU16();
+  info.usedPaper = r.readU16();
+  info.consumablesType = r.readI8() as LabelType;
+
+  if (r.canRead(2)) {
+    info.capacity = r.readU16();
+  }
+  if (r.canRead(8)) {
+    info.uuid2 = Utils.bufToHex(r.readBytes(8), "");
+  }
+  if (r.canRead(4)) {
+    info.classCode = r.readU32();
+  }
+
+  return info;
+};
+
 export class Abstraction {
   private readonly DEFAULT_PACKET_TIMEOUT: number = 1_000;
   private client: NiimbotAbstractClient;
@@ -148,36 +195,7 @@ export class Abstraction {
   }
 
   private processRfidInfo(packet: NiimbotPacket): RfidInfo {
-    const info: RfidInfo = {
-      tagPresent: false,
-      uuid: "",
-      barCode: "",
-      serialNumber: "",
-      allPaper: -1,
-      usedPaper: -1,
-      consumablesType: LabelType.Invalid,
-    };
-
-    if (packet.dataLength === 1) {
-      return info;
-    }
-
-    const r = new SequentialDataReader(packet.data);
-    info.tagPresent = true;
-    info.uuid = Utils.bufToHex(r.readBytes(8), "");
-    info.barCode = r.readVString();
-    info.serialNumber = r.readVString();
-    info.allPaper = r.readI16();
-    info.usedPaper = r.readI16();
-    info.consumablesType = r.readI8() as LabelType;
-
-    if (r.canRead(2)) {
-      info.capacity = r.readI16();
-    }
-
-    r.end();
-
-    return info;
+    return parseRfidInfo(packet.data);
   }
 
   /** Read paper nfc tag info */

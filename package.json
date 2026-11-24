@@ -42,7 +42,8 @@
     "parse-wireshark-dump": "npm run build && node tools/parse-wireshark-dump.mjs",
     "parse-text-dump": "npm run build && node tools/parse-text-dump.mjs",
     "clean": "node clean-dist.mjs",
-    "gen-printer-models": "node tools/gen-printer-models.js > src/printer_models.ts"
+    "gen-printer-models": "node tools/gen-printer-models.js > src/printer_models.ts",
+    "test": "npm run build && node --test \"test/**/*.test.cjs\""
   },
   "devDependencies": {
     "@types/node": "^25.5.2",

@@ -73,6 +73,27 @@ export class SequentialDataReader {
     return Utils.bytesToI16(part);
   }
 
+  /** Read 16 bit unsigned int (big endian) */
+  readU16(): number {
+    this.willRead(2);
+    const v = new DataView(this.bytes.buffer, this.bytes.byteOffset + this.offset, 2).getUint16(0, false);
+    this.offset += 2;
+    return v;
+  }
+
+  /** Read 32 bit unsigned int (big endian) */
+  readU32(): number {
+    this.willRead(4);
+    const v = new DataView(this.bytes.buffer, this.bytes.byteOffset + this.offset, 4).getUint32(0, false);
+    this.offset += 4;
+    return v;
+  }
+
+  /** Bytes left to read */
+  remaining(): number {
+    return this.bytes.length - this.offset;
+  }
+
   /** Check EOF condition */
   end() {
     if (this.offset != this.bytes.length) {
