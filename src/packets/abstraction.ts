@@ -25,6 +25,47 @@ import CRC32 from "crc-32";
  * @category Packets
  */
 /**
+ * Parse HeartbeatAdvanced2 response (HeartbeatType 4, official cPrinterV4/V5/V6).
+ * @category Packets
+ */
+export const parseHeartbeatAdvanced2 = (data: Uint8Array): HeartbeatData => {
+  const r = new SequentialDataReader(data);
+  const info: HeartbeatData = {};
+
+  // Field offsets follow the official SDK heartbeat parser (cPrinterV4/V5/V6, HeartbeatType 4):
+  // [2] power · [3] not read by official SDK · [4] cap · [5] paper · [6] paperRfid · [7] ribbonRfid · [8] ribbon
+  // · [9..10] wifiRssi (V5+) · [11] firmwareUpgradeStatus · [12] lightingErrorCode · [13] adapterVoltageStatus
+  // · [14] cutterStatus · [15] wifiUpgradeStatus · [16] bluetoothUpgradeStatus · [18] numberOfFaultEventFrames (V6).
+  // Longer responses are accepted (no EOF check) so newer firmware fields don't break the heartbeat.
+  Validators.u8ArrayLengthAtLeast(data, 9);
+  const d = data;
+  r.skip(2);
+  info.chargeLevel = r.readI8();
+  /** Not read by the official SDK; kept for backward compatibility */
+  info.temp = r.readI8();
+  info.lidClosed = r.readI8() === 0;
+  info.paperInserted = r.readI8() === 0;
+  info.paperRfidSuccess = r.readI8() !== 0;
+  info.ribbonRfidSuccess = r.readI8() !== 0;
+  info.ribbonInserted = r.readI8() === 0;
+
+  if (r.canRead(2)) {
+    info.wifiRssi = r.readI16();
+  }
+  if (d.length > 12) {
+    info.firmwareUpgradeStatus = d[11];
+    info.lightingErrorCode = d[12];
+  }
+  if (d.length > 13) info.voltageState = d[13];
+  if (d.length > 14) info.cutterStatus = d[14];
+  if (d.length > 15) info.wifiUpgradeStatus = d[15];
+  if (d.length > 16) info.bluetoothUpgradeStatus = d[16];
+  if (d.length > 18) info.faultEventFrames = d[18];
+
+  return info;
+};
+
+/**
  * Parse RFID info payload (In_RfidInfo 0x1B / In_RfidInfo2 0x1D).
  *
  * Field order follows the official SDK `rfiddatapro()` (libjcPrinterSdk, shared by cPrinterV3/V6):
@@ -135,10 +176,12 @@ export class Abstraction {
     Validators.u8ArrayLengthAtLeast(packet.data, 4); // can be 8, 10, but ignore it for now
 
     const r = new SequentialDataReader(packet.data);
-    const page = r.readI16();
+    const page = r.readU16(); // official: u16 BE
     const pagePrintProgress = r.readI8();
     const pageFeedProgress = r.readI8();
 
+    // Note: treating data[6] as an error code for 10-byte responses is a niimbluelib heuristic;
+    // the official SDK parser (In_PrintStatus 0xB3) has no such rule.
     if (packet.dataLength === 10) {
       r.skip(2);
       const error = r.readI8();
@@ -255,35 +298,7 @@ export class Abstraction {
   }
 
   private processHeartbeatAdvanced2(packet: NiimbotPacket): Partial<HeartbeatData> {
-    const r = new SequentialDataReader(packet.data);
-    const info: HeartbeatData = {};
-
-    Validators.u8ArrayLengthAtLeast(packet.data, 9);
-    r.skip(2);
-    info.chargeLevel = r.readI8();
-    info.temp = r.readI8();
-    info.lidClosed = r.readI8() === 0;
-    info.paperInserted = r.readI8() === 0;
-    info.paperRfidSuccess = r.readI8() !== 0;
-    info.ribbonRfidSuccess = r.readI8() !== 0;
-    info.ribbonInserted = r.readI8() === 0;
-
-    if (r.canRead(2)) {
-      info.wifiRssi = r.readI16();
-    }
-
-    if (r.canRead(2)) {
-      r.skip(1);
-      info.lightingErrorCode = r.readI8();
-    }
-
-    if (r.canRead(1)) {
-      info.voltageState = r.readI8();
-    }
-
-    r.end();
-
-    return info;
+    return parseHeartbeatAdvanced2(packet.data);
   }
 
   public async heartbeat(): Promise<HeartbeatData> {
@@ -496,6 +511,18 @@ export class Abstraction {
     const response = await this.send(PacketGenerator.printEnd());
     Validators.u8ArrayLengthEquals(response.data, 1);
     return response.data[0] === 1;
+  }
+
+  /**
+   * PrintEnd with the official SDK retry policy (jcSetPrintTerminal):
+   * while the printer answers 0 (still busy), wait {@link intervalMs} and resend, up to {@link tries} times.
+   */
+  public async printEndWithRetry(tries: number = 30, intervalMs: number = 500): Promise<boolean> {
+    for (let i = 0; i < tries; i++) {
+      if (await this.printEnd()) return true;
+      if (i < tries - 1) await Utils.sleep(intervalMs);
+    }
+    return false;
   }
 
   /**

@@ -84,7 +84,18 @@ export interface HeartbeatData {
 
   wifiRssi?: number;
   lightingErrorCode?: number;
+  /** Official SDK key: `adapterVoltageStatus` (Advanced2 data[13]) */
   voltageState?: number;
+  /** Official SDK key: `firmwareUpgradeStatus` (Advanced2 data[11], V6) */
+  firmwareUpgradeStatus?: number;
+  /** Official SDK key: `cutterStatus` (Advanced2 data[14], V6) */
+  cutterStatus?: number;
+  /** Official SDK key: `wifiUpgradeStatus` (Advanced2 data[15], V6) */
+  wifiUpgradeStatus?: number;
+  /** Official SDK key: `bluetoothUpgradeStatus` (Advanced2 data[16], V6) */
+  bluetoothUpgradeStatus?: number;
+  /** Official SDK key: `numberOfFaultEventFrames` (Advanced2 data[18]) */
+  faultEventFrames?: number;
 }
 
 /**

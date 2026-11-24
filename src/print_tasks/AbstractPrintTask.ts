@@ -109,8 +109,8 @@ export abstract class AbstractPrintTask {
     return this.abstraction.getClient().getModelMetadata()?.printheadPixels;
   }
 
-  /** End print, cleanup */
+  /** End print, cleanup. Retries like the official SDK (30 × 500ms while the printer is busy) */
   printEnd(): Promise<boolean> {
-    return this.abstraction.printEnd();
+    return this.abstraction.printEndWithRetry();
   }
 }

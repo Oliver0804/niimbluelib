@@ -8,7 +8,10 @@ export enum RequestCommandId {
   /** Entire packet should be prefixed with 0x03 */
   Connect = 0xc1,
   CancelPrint = 0xda,
+  /** @deprecated official name is {@link GetPaperParam} */
   CalibrateHeight = 0x59,
+  /** Official SDK: getPaperParam (send [01], 10-field response) */
+  GetPaperParam = 0x59,
   Heartbeat = 0xdc,
   LabelPositioningCalibration = 0x8e,
   PageEnd = 0xe3,
@@ -40,7 +43,10 @@ export enum RequestCommandId {
   AntiFake = 0x0b,
   /** same as GetVolumeLevel??? */
   WriteRFID = 0x70,
+  /** @deprecated official name is {@link PaperMeasurement}; the official test page command is 0x80 */
   PrintTestPage = 0x5a,
+  /** Official SDK: paperMeasurement */
+  PaperMeasurement = 0x5a,
   StartFirmwareUpgrade = 0xf5,
   FirmwareCrc = 0x91,
   FirmwareCommit = 0x92,
@@ -68,7 +74,9 @@ export enum ResponseCommandId {
   In_Invalid = -1,
   In_NotSupported = 0x00,
   In_Connect = 0xc2,
+  /** @deprecated official name is {@link In_GetPaperParam} */
   In_CalibrateHeight = 0x69,
+  In_GetPaperParam = 0x69,
   In_CancelPrint = 0xd0,
   In_AntiFake = 0x0c,
   In_HeartbeatAdvanced1 = 0xdd,
@@ -112,7 +120,9 @@ export enum ResponseCommandId {
   In_SoundSettings = 0x68,
   In_PageEnd = 0xe4,
   In_PrinterPageIndex = 0xe0,
+  /** @deprecated official name is {@link In_PaperMeasurement} */
   In_PrintTestPage = 0x6a,
+  In_PaperMeasurement = 0x6a,
   In_WriteRFID = 0x71,
   In_StartFirmwareUpgrade = 0xf6,
   In_RequestFirmwareCrc = 0x90,

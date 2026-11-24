@@ -140,6 +140,27 @@ export class PacketGenerator {
   }
 
 
+  /**
+   * Official SDK cPrinterV6 jcSetPageInfo: the 13-byte header of {@link setPageSize13b}
+   * followed by a 32-byte zero-filled area (EPC bytes when provided), 45 bytes in total.
+   */
+  public static setPageSize45b(
+    rows: number,
+    cols: number,
+    copiesCount: number,
+    cutHeight: number = 0,
+    cutType: number = 0,
+    sendAll: number = 0,
+    partHeight: number = 0,
+    epc: Uint8Array = new Uint8Array(0),
+  ): NiimbotPacket {
+    const head = this.setPageSize13b(rows, cols, copiesCount, cutHeight, cutType, sendAll, partHeight).data;
+    const data = new Uint8Array(45);
+    data.set(head, 0);
+    data.set(epc.subarray(0, 32), 13);
+    return this.mapped(TX.SetPageSize, data);
+  }
+
   /** First seen on D110M v4 */
   public static setPageSize13b(
     rows: number,
@@ -198,6 +219,13 @@ export class PacketGenerator {
    */
   public static printStart7b(totalPages: number, pageColor: number = 0): NiimbotPacket {
     return this.mapped(TX.PrintStart, [...Utils.u16ToBytes(totalPages), 0x00, 0x00, 0x00, 0x00, pageColor]);
+  }
+
+  /**
+   * Official SDK cPrinterV5 jcSetPrintAllTime: pages u16, 0,0,0,0, color, mode.
+   */
+  public static printStart8b(totalPages: number, pageColor: number = 0, mode: number = 0): NiimbotPacket {
+    return this.mapped(TX.PrintStart, [...Utils.u16ToBytes(totalPages), 0x00, 0x00, 0x00, 0x00, pageColor, mode]);
   }
 
   /** First seen on D110M v4 */
