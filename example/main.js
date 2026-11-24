@@ -1,11 +1,12 @@
+import { NiimbotSerialClient } from "@mmote/niimbluelib";
+import { NiimbotBluetoothClient } from "@mmote/niimbluelib";
 import {
   Utils,
   RequestCommandId,
   ResponseCommandId,
-  NiimbotBluetoothClient,
   ImageEncoder,
-  NiimbotSerialClient,
-  LabelType,
+  PageColorType,
+  printTaskNames,
 } from "@mmote/niimbluelib";
 
 let client = null;
@@ -16,9 +17,52 @@ const disconnectButton = document.querySelector("button.disconnect");
 const printButton = document.querySelector("button.print");
 const logPane = document.querySelector(".logger");
 const canvas = document.querySelector("canvas");
+const printTaskSelect = document.querySelector(".print-task");
+const pageColorSelect = document.querySelector(".page-color");
+const printDirectionSelect = document.querySelector(".print-direction");
+const printDensitySelect = document.querySelector(".print-density");
+const canvasWidthInput = document.querySelector(".canvas-width");
+const canvasHeightInput = document.querySelector(".canvas-height");
+
+const init = () => {
+  for (const name of printTaskNames) {
+    const option = document.createElement("option");
+    option.value = name;
+    option.innerText = name;
+    printTaskSelect.appendChild(option);
+  }
+  printTaskSelect.value = "B1";
+
+  // iterate PageColorType enum names and values
+  Object.keys(PageColorType)
+    .filter((key) => Number.isNaN(Number(key)))
+    .forEach((name) => {
+      const value = PageColorType[name];
+
+      const option = document.createElement("option");
+      option.value = value;
+      option.innerText = name;
+      pageColorSelect.appendChild(option);
+    });
+
+  pageColorSelect.value = PageColorType.SingleColor;
+  pageColorSelect.onchange = () => {
+    repaint();
+  };
+};
 
 /** Draw canvas test content */
 const repaint = () => {
+  const width = Number(canvasWidthInput.value);
+  const height = Number(canvasHeightInput.value);
+
+  if (width < 1 || height < 1) {
+    return;
+  }
+
+  canvas.width = width;
+  canvas.height = height;
+
   const ctx = canvas.getContext("2d");
 
   ctx.fillStyle = "white";
@@ -26,24 +70,54 @@ const repaint = () => {
 
   // fill background
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const pageColor = Number(pageColorSelect.value);
 
-  // draw diagonal line
-  ctx.beginPath();
-  ctx.moveTo(0, ctx.lineWidth / 2);
-  ctx.lineTo(canvas.width, canvas.height-ctx.lineWidth / 2);
-  ctx.stroke();
+  if (pageColor === PageColorType.SingleColor) {
+    // draw diagonal line
+    ctx.beginPath();
+    ctx.moveTo(0, ctx.lineWidth / 2);
+    ctx.lineTo(canvas.width, canvas.height - ctx.lineWidth / 2);
+    ctx.stroke();
 
-  // draw border
-  ctx.strokeRect(0.5, 0.5, canvas.width - 1, canvas.height - 1);
+    // draw border
+    ctx.strokeRect(0.5, 0.5, canvas.width - 1, canvas.height - 1);
+  } else if (pageColor === PageColorType.DoubleColor) {
+    // draw red and black stroke rectangles next to each other with some shift to use all types of color packets
+    const rectSize = Math.round(Math.min(canvas.width, canvas.height) / 3);
+    const shift = rectSize / 4;
+    ctx.strokeStyle = "#ff0000";
+    ctx.strokeRect(
+      Math.round(canvas.width / 2 - rectSize - shift) + 0.5,
+      Math.round(canvas.height / 2 - rectSize / 2 - shift) + 0.5,
+      rectSize,
+      rectSize,
+    );
+    ctx.strokeStyle = "black";
+    ctx.strokeRect(
+      Math.round(canvas.width / 2 + shift) + 0.5,
+      Math.round(canvas.height / 2 - rectSize / 2 + shift) + 0.5,
+      rectSize,
+      rectSize,
+    );
+  } else if (pageColor === PageColorType.Grayscale) {
+    // draw a white-to-black gradient using all 16 grayscale levels
+    const levels = 16;
+    const barHeight = canvas.height / levels;
+
+    for (let i = 0; i < levels; i++) {
+      const shade = Math.round((1 - i / (levels - 1)) * 255);
+      ctx.fillStyle = `rgb(${shade}, ${shade}, ${shade})`;
+      ctx.fillRect(0, Math.floor(i * barHeight), canvas.width, Math.ceil(barHeight));
+    }
+  }
 };
 
-/** Add text to log pane */
+/** Add text to log pane, add listeners */
 const logger = (text) => {
   console.log(text);
   logPane.innerText += text + "\n";
   logPane.scrollTop = logPane.scrollHeight;
 };
-
 
 /** Instantiate client */
 const newClient = (transport) => {
@@ -51,13 +125,17 @@ const newClient = (transport) => {
     client.disconnect();
   }
 
-  if (transport === "ble") {
+  client = undefined;
+
+  if (transport === "bluetooth" && NiimbotBluetoothClient.isAvailable()) {
     client = new NiimbotBluetoothClient();
-  } else if (transport === "serial") {
+  } else if (transport === "serial"&& NiimbotSerialClient.isAvailable() ) {
     client = new NiimbotSerialClient();
   }
 
-  client.setPacketInterval(2);
+  if (!client) {
+    throw new Error(`Client ${transport} is not available`);
+  }
 
   client.on("packetsent", (e) => {
     logger(`>> ${Utils.bufToHex(e.packet.toBytes())} (${RequestCommandId[e.packet.command]})`);
@@ -73,6 +151,12 @@ const newClient = (transport) => {
     printButton.disabled = false;
     bleConnectButton.disabled = true;
     serialConnectButton.disabled = true;
+
+    const detectedPrintTask = client.getPrintTaskType();
+
+    if (detectedPrintTask) {
+      printTaskSelect.value = detectedPrintTask;
+    }
   });
 
   client.on("disconnect", () => {
@@ -92,13 +176,12 @@ const newClient = (transport) => {
 disconnectButton.onclick = () => {
   client.disconnect();
   client = null;
-}
+};
 
 /** On "Connect BLE" clicked */
 bleConnectButton.onclick = async () => {
-  newClient("ble");
-
   try {
+    newClient("bluetooth");
     await client.connect();
   } catch (e) {
     alert(e);
@@ -107,9 +190,8 @@ bleConnectButton.onclick = async () => {
 
 /** On "Connect Serial" clicked */
 serialConnectButton.onclick = async () => {
-  newClient("serial");
-
   try {
+    newClient("serial");
     await client.connect();
   } catch (e) {
     alert(e);
@@ -118,21 +200,19 @@ serialConnectButton.onclick = async () => {
 
 /** On "Print" clicked */
 printButton.onclick = async () => {
-  /** left or top — B1 Pro defaults to "top" per printer_models.ts */
-  const printDirection = "top";
   const quantity = 1;
+  const pageColor = Number(pageColorSelect.value);
+  const density = Number(printDensitySelect.value);
 
   /** Convert image to black and white bits */
-  const encoded = ImageEncoder.encodeCanvas(canvas, printDirection);
+  const encoded = ImageEncoder.encodeCanvas(canvas, pageColor, printDirectionSelect.value);
 
-  /** todo: Auto-detection works only for a small set of printers so manual user selection is required */
-  const printTaskName = client.getPrintTaskType() ?? "B1";
-
-  const printTask = client.abstraction.newPrintTask(printTaskName, {
+  const printTask = client.protocol.newPrintTask(printTaskSelect.value, {
     totalPages: quantity,
     statusPollIntervalMs: 100,
     statusTimeoutMs: 8_000,
-    labelType: LabelType.Black,
+    pageColor,
+    density,
   });
 
   try {
@@ -141,10 +221,15 @@ printButton.onclick = async () => {
     await printTask.waitForPageFinished();
     await printTask.waitForFinished();
   } catch (e) {
+    console.error(e);
     alert(e);
   } finally {
     await printTask.printEnd();
   }
 };
 
+canvasWidthInput.oninput = repaint;
+canvasHeightInput.oninput = repaint;
+
+init();
 repaint();

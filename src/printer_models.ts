@@ -1,12 +1,13 @@
 /* AUTO-GENERATED FILE. DO NOT EDIT! */
 /* use 'npm run gen-printer-models' to generate */
 
-import { PrintDirection } from "./image_encoder";
+import { PrintDirection } from "./utils/image_encoder";
 import { LabelType as LT } from "./packets";
 
 /** @category Printer model library */
 export enum PrinterModel {
   UNKNOWN = "UNKNOWN",
+  A1_PRO = "A1_PRO",
   A20 = "A20",
   A203 = "A203",
   A63 = "A63",
@@ -33,8 +34,10 @@ export enum PrinterModel {
   B32 = "B32",
   B32R = "B32R",
   B3S = "B3S",
+  B3S_A = "B3S_A",
   B3S_P = "B3S_P",
   B4 = "B4",
+  B4_PRO = "B4_PRO",
   B50 = "B50",
   B50W = "B50W",
   BETTY = "BETTY",
@@ -49,6 +52,7 @@ export enum PrinterModel {
   D41 = "D41",
   D61 = "D61",
   DXX = "DXX",
+  EP1C = "EP1C",
   EP2M_H = "EP2M_H",
   EP3M = "EP3M",
   ET10 = "ET10",
@@ -61,7 +65,9 @@ export enum PrinterModel {
   JCB3S = "JCB3S",
   K2 = "K2",
   K3 = "K3",
+  K3_ITD = "K3_ITD",
   K3_W = "K3_W",
+  K4 = "K4",
   M2_H = "M2_H",
   M3 = "M3",
   MP3K = "MP3K",
@@ -98,6 +104,17 @@ export interface PrinterModelMeta {
 
 /** @category Printer model library */
 export const modelsLibrary: PrinterModelMeta[] = [
+  {
+    model: PrinterModel.A1_PRO,
+    id: [7424],
+    dpi: 300,
+    printDirection: "left",
+    printheadPixels: 296,
+    paperTypes: [LT.Perforated, LT.Continuous],
+    densityMin: 1,
+    densityMax: 5,
+    densityDefault: 3,
+  },
   {
     model: PrinterModel.A20,
     id: [2817],
@@ -385,6 +402,17 @@ export const modelsLibrary: PrinterModelMeta[] = [
     densityDefault: 3,
   },
   {
+    model: PrinterModel.B3S_A,
+    id: [275],
+    dpi: 203,
+    printDirection: "top",
+    printheadPixels: 576,
+    paperTypes: [LT.WithGaps, LT.Black, LT.Continuous, LT.Transparent],
+    densityMin: 1,
+    densityMax: 5,
+    densityDefault: 3,
+  },
+  {
     model: PrinterModel.B3S_P,
     id: [272],
     dpi: 203,
@@ -401,6 +429,17 @@ export const modelsLibrary: PrinterModelMeta[] = [
     dpi: 203,
     printDirection: "top",
     printheadPixels: 832,
+    paperTypes: [LT.WithGaps, LT.Black, LT.Transparent],
+    densityMin: 1,
+    densityMax: 5,
+    densityDefault: 3,
+  },
+  {
+    model: PrinterModel.B4_PRO,
+    id: [6657],
+    dpi: 300,
+    printDirection: "top",
+    printheadPixels: 1229,
     paperTypes: [LT.WithGaps, LT.Black, LT.Transparent],
     densityMin: 1,
     densityMax: 5,
@@ -526,6 +565,17 @@ export const modelsLibrary: PrinterModelMeta[] = [
     densityMin: 1,
     densityMax: 3,
     densityDefault: 2,
+  },
+  {
+    model: PrinterModel.EP1C,
+    id: [5121],
+    dpi: 300,
+    printDirection: "left",
+    printheadPixels: 178,
+    paperTypes: [LT.Continuous],
+    densityMin: 1,
+    densityMax: 5,
+    densityDefault: 3,
   },
   {
     model: PrinterModel.EP2M_H,
@@ -660,6 +710,17 @@ export const modelsLibrary: PrinterModelMeta[] = [
     densityDefault: 3,
   },
   {
+    model: PrinterModel.K3_ITD,
+    id: [4868],
+    dpi: 203,
+    printDirection: "top",
+    printheadPixels: 640,
+    paperTypes: [LT.WithGaps, LT.Black, LT.Transparent],
+    densityMin: 1,
+    densityMax: 5,
+    densityDefault: 3,
+  },
+  {
     model: PrinterModel.K3_W,
     id: [4865],
     dpi: 203,
@@ -669,6 +730,17 @@ export const modelsLibrary: PrinterModelMeta[] = [
     densityMin: 1,
     densityMax: 5,
     densityDefault: 3,
+  },
+  {
+    model: PrinterModel.K4,
+    id: [7168],
+    dpi: 203,
+    printDirection: "top",
+    printheadPixels: 832,
+    paperTypes: [LT.WithGaps, LT.Black, LT.Transparent],
+    densityMin: 1,
+    densityMax: 15,
+    densityDefault: 7,
   },
   {
     model: PrinterModel.M2_H,

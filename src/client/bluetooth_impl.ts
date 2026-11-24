@@ -9,6 +9,25 @@ const getAllModelFirstLetters = (): string[] => [...new Set(modelsLibrary.map((m
 /**
  * @category Client
  */
+export interface NiimbotBluetoothClientConnectOptions {
+  /**
+   * Allows using authorized device without device picker dialog.
+   * "Use the new permissions backend for Web Bluetooth" at chrome://flags must be enabled to use `navigator.bluetooth.gedDevices()`
+   *
+   * Example:
+   *
+   * ```
+   * const authorized = await navigator.bluetooth.getDevices();
+   * const authorizedDevice = authorized.find(d => d.name.includes("B1"));
+   * await client.connect({ authorizedDevice });
+   * ```
+   */
+  authorizedDevice?: BluetoothDevice
+}
+
+/**
+ * @category Client
+ */
 export class BleDefaultConfiguration {
   public static readonly SERVICES: string[] = ["e7810a71-73ae-499d-8c15-faa9aef0c3f2"];
   public static readonly NAME_FILTERS: BluetoothLEScanFilter[] = [
@@ -34,37 +53,39 @@ export class NiimbotBluetoothClient extends NiimbotAbstractClient {
     this.serviceUuidFilter = ids;
   }
 
-  public async connect(): Promise<ConnectionInfo> {
+  public async connect(options?: NiimbotBluetoothClientConnectOptions): Promise<ConnectionInfo> {
     await this.disconnect();
 
-    const options: RequestDeviceOptions = {
-      filters: [
-        ...BleDefaultConfiguration.NAME_FILTERS,
-        { services: this.serviceUuidFilter ?? BleDefaultConfiguration.SERVICES },
-      ],
-    };
+    let device: BluetoothDevice;
 
-    const device: BluetoothDevice = await navigator.bluetooth.requestDevice(options);
+    if (options?.authorizedDevice !== undefined) {
+      device = options?.authorizedDevice;
+    } else {
+      const options: RequestDeviceOptions = {
+        filters: [
+          ...BleDefaultConfiguration.NAME_FILTERS,
+          { services: this.serviceUuidFilter ?? BleDefaultConfiguration.SERVICES },
+        ],
+      };
+
+      device = await navigator.bluetooth.requestDevice(options);
+    }
+
 
     if (device.gatt === undefined) {
       throw new Error("Device has no Bluetooth Generic Attribute Profile");
     }
 
+    const { gattServer, channel } = await this.connectGatt(device.gatt);
+
     const disconnectListener = () => {
       this.gattServer = undefined;
       this.channel = undefined;
-      this.info = {};
       this.emit("disconnect", new DisconnectEvent());
       device.removeEventListener("gattserverdisconnected", disconnectListener);
     };
 
     device.addEventListener("gattserverdisconnected", disconnectListener);
-
-    const gattServer: BluetoothRemoteGATTServer = await device.gatt.connect();
-
-    const channel: BluetoothRemoteGATTCharacteristic | undefined = await this.findSuitableBluetoothCharacteristic(
-      gattServer
-    );
 
     if (channel === undefined) {
       gattServer.disconnect();
@@ -83,22 +104,43 @@ export class NiimbotBluetoothClient extends NiimbotAbstractClient {
     this.gattServer = gattServer;
     this.channel = channel;
 
-    try {
-      await this.initialNegotiate();
-      await this.fetchPrinterInfo();
-    } catch (e) {
-      console.error("Unable to fetch printer info.");
-      console.error(e);
-    }
+    await this.negotiateAndGetPrinterInfo(() => this.disconnect());
 
     const result: ConnectionInfo = {
       deviceName: device.name,
-      result: this.info.connectResult ?? ConnectResult.FirmwareErrors,
+      result: this.printerInfo.connectResult ?? ConnectResult.FirmwareErrors,
     };
 
     this.emit("connect", new ConnectEvent(result));
 
     return result;
+  }
+
+  /**
+   * Connect to the GATT server and look up the data characteristic.
+   *
+   * Web Bluetooth sometimes drops the link right after `gatt.connect()` succeeds, which fails with
+   * `NetworkError: GATT Server is disconnected. Cannot retrieve services.` Trying again usually works.
+   */
+  private async connectGatt(
+    gatt: BluetoothRemoteGATTServer,
+    attempts: number = 3,
+    retryDelayMs: number = 500
+  ): Promise<{ gattServer: BluetoothRemoteGATTServer; channel: BluetoothRemoteGATTCharacteristic | undefined }> {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        const gattServer: BluetoothRemoteGATTServer = await gatt.connect();
+        return { gattServer, channel: await this.findSuitableBluetoothCharacteristic(gattServer) };
+      } catch (e) {
+        if (attempt >= attempts || !(e instanceof DOMException && e.name === "NetworkError")) {
+          throw e;
+        }
+
+        console.warn(`GATT connection failed (attempt ${attempt}/${attempts}), retrying`, e);
+        gatt.disconnect();
+        await Utils.sleep(retryDelayMs);
+      }
+    }
   }
 
   private async findSuitableBluetoothCharacteristic(
@@ -132,7 +174,6 @@ export class NiimbotBluetoothClient extends NiimbotAbstractClient {
     this.gattServer?.disconnect();
     this.gattServer = undefined;
     this.channel = undefined;
-    this.info = {};
   }
 
   public async sendRaw(data: Uint8Array, force?: boolean) {
@@ -150,5 +191,13 @@ export class NiimbotBluetoothClient extends NiimbotAbstractClient {
     } else {
       await this.mutex.runExclusive(send);
     }
+  }
+
+  public getType(): string {
+    return "bluetooth";
+  }
+
+  public static override isAvailable(): boolean {
+    return typeof navigator.bluetooth?.requestDevice !== "undefined";
   }
 }

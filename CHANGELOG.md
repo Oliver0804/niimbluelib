@@ -1,0 +1,86 @@
+# 0.50.0
+
+* **BREAKING:** Remove `instantiateClient`, `NiimbotClientType`, `Utils.isBluetoothSupported`, `Utils.isSerialSupported`, and `Utils.getAvailableTransports`. Instantiate clients directly or create own factory.
+* **BREAKING:** Remove `NiimbotCapacitorBleClient`. Extend `NiimbotAbstractClient` yourself if you need it ([see docs](https://libdocs.niim.blue/documents/Implementing_your_own_client.html)).
+* Add `NiimbotAbstractClient.isAvailable` static method to check transport availability (e.g. `NiimbotBluetoothClient.isAvailable()`).
+* `getType` now returns `string`, allowing custom client types.
+* Fix race when a response arrives before `waitForPacket` starts listening (fast transports, e.g. USB serial).
+* Increase `rfidInfo` timeout to 5.5 seconds (some printers take a long time to respond to this command).
+* `AbstractPrintTask.printheadPixels`: prefer value returned from printer.
+
+# 0.49.1
+
+* Fix slow printing and firmware transfers when the browser tab is in the background: `Utils.sleep` now runs its timer in a Web Worker (browsers throttle window timers on hidden pages), falling back to `setTimeout` when workers are unavailable.
+* Web Bluetooth: retry GATT connection when the link drops during service discovery.
+
+# 0.49.0
+
+* **BREAKING:** Rename `PageColorType.MultiorderColor` to `PageColorType.Grayscale`
+* Add 16-level grayscale printing via `PageColorType.Grayscale` for `D110MV4PrintTask`.
+* Add `NiimbotPacket16` for packets with a 16-bit data length.
+
+# 0.48.0
+
+* Fix `NiimbotAbstractClient.isHeartbeatStarted` inversion.
+* `NiimbotCapacitorBleClient`: fix disconnect event always fired on connection.
+* `B21L2BPrintTask`: fix progress event invalid argument order.
+* Add `NiimbotAbstractClient.setAutoShutdownTime`.
+* **BREAKING:** Move `NiimbotAbstractClient.printerInfo.autoShutdownTime` to `NiimbotAbstractClient.printerInfo.settings.autoShutdownTime`.
+
+# 0.47.1
+
+* findPrintTask: return `D110M_V4` if `protocolVersion >= 4`.
+* Fix unsigned int packet fields parsed as signed int.
+* Catch firmware reject error.
+
+# 0.47.0
+
+* Fix parsing RfidInfo packet response with extra uuid field.
+* **BREAKING:** `NiimbotAbstractClient` now stores and maintains the state of `RfidInfo` and `HeartbeatData`:
+  - Add `fetchRfidInfo` and `fetchHeartbeatData`.
+  - Add `getRfidInfo`, `getHeartbeatData`, and `setHeartbeatMaxFails`.
+  - The client now disconnects automatically when the number of failed heartbeats exceeds the maximum allowed value.
+  - `RfidInfo` is fetched automatically when connecting, RFID state change in a heartbeat, print end.
+* **BREAKING:** Remove `labelType` field from `PrinterInfo` (it's better to retrieve this property on demand).
+* `printPage` in print tasks now fires `printpacketprogress` events.
+* Add `printTasksCapabilities`.
+* Add `NiimbotProtocol.getPaperInfo` to get paper dimensions from RFID (auto called and stored in `NiimbotAbstractClient.rfidInfo`).
+* Auto update RFID data on lid state change (for old printers).
+* Use `GetPrinterCapabilities` command to extend `NiimbotAbstractClient.printerInfo`.
+* Compact ambiguous version format.
+* Add `NiimbotAbstractClient.setSoundEnabled`, `NiimbotAbstractClient.printerInfo.settings`.
+
+# 0.46.0
+
+* Switch to semantic versioning.
+* **BREAKING**: rename `abstraction` to `protocol`.
+* Move parsing operations to `PacketParser`.
+* Allow reconnecting to an previously authorized `SerialPort`/`BluetoothDevice`.
+* Add `NiimbotPacket.fromHex`.
+* Add `NiimbotVirtualClient` and tests with dumps from real printers (printer characteristics detection).
+* Fix version detection for non-very-old printer models.
+* Add `NiimbotAbstractClient.setHeartbeatAutoStart`.
+* **BREAKING**: `PrinterInfo.charge` and `HeartbeatData.chargeLevel` renamed to `batteryPercents`.
+* **BREAKING**: Battery charge level is in 0-100 range now.
+* Auto update `NiimbotAbstractClient.info.batteryPercents` with heartbeat data.
+* **BREAKING**: Initial negotiation results are now strictly checked in `connect()`. Connecting to a non-printer port is prohibited.
+
+# 0.0.1-alpha.45
+
+* node: fix BLE scan and connection setup.
+* Add `NiimbotAbstractClient.getType`.
+* Add statusPollTimer cleanup to printEnd.
+* `AbstractPrintTask`:
+   - Add `isSupportColor`, `setPrintOptions`, `reset` (allow reusing the same print task for multiple print jobs).
+   - Add `options.cutHeight`.
+   - Fix `options.cutType` not being used.
+* Add `printheadWidth`, `supportColor` gathering on printer connection (`PrinterInfo` object).
+* Add double color support to `B1PrintTask`.
+
+# 0.0.1-alpha.44
+
+* Add more packet command ID's.
+* Add double color printing support to `D110MV4PrintTask` (`PrintBitmapRowMoreColor` packets).
+* Add double color encoding to `ImageEncoder.encodeCanvas` (second color is #ff0000 when pageColor is DoubleColor).
+* **BREAKING**: `ImageEncoder.encodeCanvas` now requires implicit parameters.
+* Add tube printing support for `D110MV4PrintTask` (options `halfCut`, `tubeWidthMm`, `cutType`, `tubeType`).

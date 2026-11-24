@@ -1,6 +1,7 @@
-import { EncodedImage } from "../image_encoder";
-import { LabelType } from "../packets";
-import { Abstraction } from "../packets/abstraction";
+import { PrintEndEvent, PrintPacketProgressEvent, PrintProgressEvent } from "..";
+import { EncodedImage } from "../utils";
+import { LabelType, PageColorType } from "../packets";
+import { NiimbotProtocol } from "../packets/protocol";
 
 /**
  * Print options for print tasks.
@@ -29,9 +30,20 @@ export type PrintOptions = {
    * Supported in D110MV4PrintTask */
   speed: 0 | 1;
 
-  /** Print temperature for multicolor paper.
-   * Supported in B1PrintTask and D110MV4PrintTask */
-  color: number;
+  /** Color mode for multicolor / grayscale print.
+   * Supported in D110MV4PrintTask */
+  pageColor: PageColorType;
+
+  halfCut?: boolean;
+
+  /** For shrink tube */
+  tubeWidthMm?: number;
+
+  cutType: number;
+
+  cutHeight: number;
+
+  tubeType?: number;
 };
 
 /** Default print options for print tasks. */
@@ -43,7 +55,9 @@ const printOptionsDefaults: PrintOptions = {
   statusTimeoutMs: 5_000,
   pageTimeoutMs: 10_000,
   speed: 1,
-  color: 0,
+  pageColor: PageColorType.SingleColor,
+  cutType: 0,
+  cutHeight: 0,
 };
 
 /**
@@ -53,31 +67,35 @@ const printOptionsDefaults: PrintOptions = {
  * ```ts
  * const quantity = 1;
  *
- * const printTask = client.abstraction.newPrintTask("D110", {
+ * const printTask = client.protocol.newPrintTask("B1", {
  *   totalPages: quantity
  * });
  *
  * try {
  *   await printTask.printInit();
+ *
+ *   // you can print multiple pages in a loop, make sure options.totalPages is set correctly
  *   await printTask.printPage(encodedImage, quantity); // encode your canvas with ImageEncoder.encodeCanvas
  *   await printTask.waitForPageFinished();
+ *   // loop ends here
+ *
  *   await printTask.waitForFinished();
  * } catch (e) {
  *   alert(e);
  * } finally {
- *   await client.abstraction.printEnd();
+ *   await client.protocol.printEnd();
  * }
  * ```
  *
  * @category Print tasks
  **/
 export abstract class AbstractPrintTask {
-  protected abstraction: Abstraction;
+  protected protocol: NiimbotProtocol;
   protected printOptions: PrintOptions;
   protected pagesPrinted: number;
 
-  constructor(abstraction: Abstraction, printOptions?: Partial<PrintOptions>) {
-    this.abstraction = abstraction;
+  constructor(protocol: NiimbotProtocol, printOptions?: Partial<PrintOptions>) {
+    this.protocol = protocol;
     this.pagesPrinted = 0;
 
     this.printOptions = {
@@ -86,11 +104,38 @@ export abstract class AbstractPrintTask {
     };
   }
 
-  /** Check added pages not does not exceed {@link pagesPrinted} */
-  protected checkAddPage(quantity: number) {
+  /** Update print options for this print task */
+  setPrintOptions(printOptions: Partial<PrintOptions>) {
+    this.printOptions = {
+      ...this.printOptions,
+      ...printOptions,
+    };
+  }
+  /** Reset print task state (pages printed) */
+  reset() {
+    this.pagesPrinted = 0;
+  }
+  /**
+   * Validate page before printing. Checks:
+   *  - Page color is supported by this print task
+   *  - Page color matches print task color
+   *  - Added pages not does not exceed {@link pagesPrinted}
+   *
+   * Also increments {@link pagesPrinted} by quantity.
+   **/
+  protected validatePage(image: EncodedImage, quantity: number) {
     if (this.pagesPrinted + quantity > (this.printOptions.totalPages ?? 1)) {
       throw new Error("Trying to print too many pages (task totalPages may not be set correctly)");
     }
+
+    if (!this.isSupportColor(image.pageColor)) {
+      throw new Error(`Page color ${image.pageColor} is not supported by this print task`);
+    }
+
+    if (this.printOptions.pageColor !== image.pageColor) {
+      throw new Error(`Page color ${image.pageColor} does not match print task color ${this.printOptions.pageColor}`);
+    }
+
     this.pagesPrinted += quantity;
   }
 
@@ -106,11 +151,44 @@ export abstract class AbstractPrintTask {
   abstract waitForFinished(): Promise<void>;
   /** Printer's printhead resolution in pixels */
   protected printheadPixels(): number | undefined {
-    return this.abstraction.getClient().getModelMetadata()?.printheadPixels;
+    return this.protocol.getClient().getPrinterInfo().printheadWidth
+            ?? this.protocol.getClient().getModelMetadata()?.printheadPixels;
+  }
+  /** End print, cleanup */
+  async printEnd(): Promise<boolean> {
+    const result = await this.protocol.printEnd();
+    this.emitPrintEndEvent();
+    return result;
+  }
+  /** Check if this print task supports a specified page color */
+  isSupportColor(pageColor: PageColorType): boolean {
+    return pageColor === PageColorType.SingleColor;
   }
 
-  /** End print, cleanup */
-  printEnd(): Promise<boolean> {
-    return this.abstraction.printEnd();
+  protected makePacketProgressCallback(stepPercent: number = 5) {
+    let lastReportedStep = -1;
+
+    return (current: number, total: number) => {
+      const percent = Math.floor((current / total) * 100);
+      const step = Math.floor(percent / stepPercent);
+
+      if (step > lastReportedStep || current === total) {
+        lastReportedStep = step;
+        this.protocol.getClient().emit("printpacketprogress", new PrintPacketProgressEvent(percent));
+      }
+    };
+  }
+
+  protected emitProgressEvent(pagePrintProgress: number = 100, pageFeedProgress: number = 100) {
+    this.protocol
+      .getClient()
+      .emit(
+        "printprogress",
+        new PrintProgressEvent(this.pagesPrinted, this.printOptions.totalPages, pagePrintProgress, pageFeedProgress),
+      );
+  }
+
+  protected emitPrintEndEvent() {
+    this.protocol.getClient().emit("printend", new PrintEndEvent(this.pagesPrinted));
   }
 }

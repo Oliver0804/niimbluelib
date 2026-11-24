@@ -1,4 +1,4 @@
-import { EncodedImage } from "../image_encoder";
+import { EncodedImage } from "../utils";
 import { PacketGenerator } from "../packets";
 import { AbstractPrintTask } from "./AbstractPrintTask";
 
@@ -7,7 +7,7 @@ import { AbstractPrintTask } from "./AbstractPrintTask";
  */
 export class OldD11PrintTask extends AbstractPrintTask {
   override printInit(): Promise<void> {
-    return this.abstraction.sendAll([
+    return this.protocol.sendAll([
       PacketGenerator.setDensity(this.printOptions.density),
       PacketGenerator.setLabelType(this.printOptions.labelType),
       PacketGenerator.printStart1b(),
@@ -15,9 +15,9 @@ export class OldD11PrintTask extends AbstractPrintTask {
   }
 
   override printPage(image: EncodedImage, quantity: number): Promise<void> {
-    this.checkAddPage(quantity ?? 1);
+    this.validatePage(image, quantity ?? 1);
 
-    return this.abstraction.sendAll(
+    return this.protocol.sendAll(
       [
         PacketGenerator.printClear(),
         PacketGenerator.pageStart(),
@@ -26,12 +26,13 @@ export class OldD11PrintTask extends AbstractPrintTask {
         ...PacketGenerator.writeImageData(image, { printheadPixels: this.printheadPixels() }),
         PacketGenerator.pageEnd(),
       ],
-      this.printOptions.pageTimeoutMs
+      this.printOptions.pageTimeoutMs,
+      this.makePacketProgressCallback(),
     );
   }
 
   override waitForFinished(): Promise<void> {
-    return this.abstraction.waitUntilPrintFinishedByPageIndex(
+    return this.protocol.waitUntilPrintFinishedByPageIndex(
       this.printOptions.totalPages ?? 1,
       this.printOptions.statusTimeoutMs
     );

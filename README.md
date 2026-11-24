@@ -3,17 +3,14 @@
 > [!WARNING]
 >
 > This project is intended for informational and educational purposes only.
-> The project is not affiliated with or endorsed by the original software or hardware vendor,
-> and is not intended to be used for commercial purposes without the consent of the vendor.
+> The project is not affiliated with or endorsed by the original software or hardware vendor.
 
-[Documentation](https://niim-docs.pages.dev)
+[Documentation](https://libdocs.niim.blue)
 
 NiimBlueLib is a library for the communication with NIIMBOT printers.
 Used in [NiimBlue](https://github.com/MultiMote/niimblue) project.
 
 NiimBlueLib provides the most accurate open source implementation of the NIIMBOT printers protocol.
-
-This project is in Alpha state. Use only exact version when you add it to your project. API can be changed anytime.
 
 Also check out [niimblue-node](https://github.com/MultiMote/niimblue-node) for CLI use cases.
 
@@ -40,6 +37,8 @@ const client = new niimbluelib.NiimbotBluetoothClient();
 ### Usage example
 
 See [example/main.js](example/main.js)
+
+Live: https://libdocs.niim.blue/example
 
 ### B1 Pro + 54×80mm 黑標連續紙實測設定
 
@@ -94,5 +93,5 @@ await task.printEnd();
 Eslint not included. Install it with:
 
 ```
-npm install --no-save --no-package-lock eslint@9.x globals @eslint/js typescript-eslint
+npm install --no-save --no-package-lock eslint globals @eslint/js typescript-eslint
 ```

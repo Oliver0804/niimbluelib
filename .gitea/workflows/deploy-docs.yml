@@ -1,0 +1,66 @@
+name: Build and deploy docs
+
+on:
+  # Runs on pushes targeting the default branch
+  push:
+    branches:
+      - main
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "26"
+          cache: npm
+          cache-dependency-path: ./package-lock.json
+
+      - name: Setup rsync
+        run: sudo apt-get update && sudo apt-get install -y rsync
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install typedoc
+        run: npm install -D typedoc@0.28.18 typedoc-plugin-include-example@3.0.2
+
+      - name: Build lib
+        run: npm run build
+
+      - name: Build docs
+        run: npx typedoc
+
+      - name: Install example dependencies
+        run: npm ci
+        working-directory: example
+
+      - name: Build example
+        run: npm run build-rel
+        working-directory: example
+
+      - name: Copy example
+        run: cp -r example/dist docs/html/example
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DOCS_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H -p ${{ secrets.DOCS_SSH_PORT || 22 }} ${{ secrets.DOCS_SSH_HOST }} >> ~/.ssh/known_hosts
+        env:
+          DOCS_SSH_PRIVATE_KEY: ${{ secrets.DOCS_SSH_PRIVATE_KEY }}
+
+      - name: Deploy with Rsync
+        run: |
+          rsync -avz --delete \
+                -e "ssh -p ${{ secrets.DOCS_SSH_PORT || 22 }}" \
+                ./docs/html/ ${{ secrets.DOCS_SSH_USERNAME }}@${{ secrets.DOCS_SSH_HOST }}:${{ secrets.DOCS_DEPLOY_PATH }}/
