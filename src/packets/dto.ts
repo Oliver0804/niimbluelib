@@ -28,6 +28,12 @@ export interface PrinterInfo {
   labelType?: LabelType;
   softwareVersion?: string;
   hardwareVersion?: string;
+  /** Official SDK printer class (V3..V6), see {@link officialPrinterClass} */
+  officialClass?: OfficialPrinterClass;
+  /** Rows per data block (0xA5 data[4..5]); the printer answers 0xD3 after each block */
+  blockRows?: number;
+  /** Printer row cache (0xA5 data[2..3]) */
+  cacheRows?: number;
 }
 
 /**
@@ -113,4 +119,44 @@ export interface SoundSettings {
 export interface PrinterStatusData {
   supportColor: number;
   protocolVersion: number;
+  /** Official SDK: data[11] — protocol major version */
+  versionMajor?: number;
+  /** Official SDK: data[12] — protocol minor version */
+  versionMinor?: number;
+  /** Official SDK: data[2..3] u16 — printer row cache (pages shorter than this are sent once with copy count) */
+  cacheRows?: number;
+  /** Official SDK: data[4..5] u16 — rows per data block; the printer answers 0xD3 after each block */
+  blockRows?: number;
+  /** Official SDK printer class chosen from 0xC2 / 0xA5 (connectBluetoothPrinter) */
+  officialClass?: OfficialPrinterClass;
 }
+
+/**
+ * Printer protocol class of the official SDK (libjcPrinterSdk cPrinterV3..V6).
+ * @category Packets
+ */
+export type OfficialPrinterClass = "V3" | "V4" | "V5" | "V6";
+
+/**
+ * Official SDK class selection (connectBluetoothPrinter):
+ * - 0xC2 data[0] != 3 → (0, data[0]); == 3 → version from 0xA5 data[11].data[12]
+ *   (major ≥ 3 as is; major == 2 && minor ≥ 3 → (2, minor); otherwise (0, 3))
+ * - major ≥ 3: minor < 2 → V5, else V6
+ * - major < 3 (B1 family): minor == 3 → V3, else V4
+ * @category Packets
+ */
+export const officialPrinterClass = (connectResult: number, major?: number, minor?: number): OfficialPrinterClass => {
+  let ma = 0;
+  let mi = connectResult;
+  if (connectResult === 3) {
+    if (major !== undefined && minor !== undefined && (major >= 3 || (major === 2 && minor >= 3))) {
+      ma = major;
+      mi = minor;
+    } else {
+      ma = 0;
+      mi = 3;
+    }
+  }
+  if (ma >= 3) return mi < 2 ? "V5" : "V6";
+  return mi === 3 ? "V3" : "V4";
+};

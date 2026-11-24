@@ -20,7 +20,7 @@ import {
 } from "../events";
 import { findPrintTask, PrintTaskName } from "../print_tasks";
 import { Utils, Validators } from "../utils";
-import { PrinterInfo, PrintError } from "../packets/dto";
+import { PrinterInfo, PrintError, officialPrinterClass } from "../packets/dto";
 
 /**
  * Represents the connection result information.
@@ -212,11 +212,16 @@ export abstract class NiimbotAbstractClient extends EventEmitter<ClientEventMap>
     cfg.connectResult = await this.abstraction.connectResult();
     cfg.protocolVersion = 0;
 
+    cfg.officialClass = officialPrinterClass(cfg.connectResult);
+
     if (cfg.connectResult === ConnectResult.ConnectedNew) {
       cfg.protocolVersion = 1;
     } else if (cfg.connectResult === ConnectResult.ConnectedV3) {
       const statusData = await this.abstraction.getPrinterStatusData();
       cfg.protocolVersion = statusData.protocolVersion;
+      cfg.officialClass = statusData.officialClass;
+      cfg.blockRows = statusData.blockRows;
+      cfg.cacheRows = statusData.cacheRows;
     }
   }
 

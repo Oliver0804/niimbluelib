@@ -14,7 +14,7 @@ import { PrintTaskName, printTasks } from "../print_tasks";
 import { AbstractPrintTask, PrintOptions } from "../print_tasks/AbstractPrintTask";
 import { Validators, Utils } from "../utils";
 import { SequentialDataReader } from "./data_reader";
-import { HeartbeatData, PrintError, PrinterStatusData, PrintStatus, RfidInfo } from "./dto";
+import { HeartbeatData, PrintError, PrinterStatusData, PrintStatus, RfidInfo, officialPrinterClass } from "./dto";
 import { NiimbotCrc32Packet, NiimbotPacket } from "./packet";
 import { PacketGenerator } from "./packet_generator";
 import CRC32 from "crc-32";
@@ -24,6 +24,51 @@ import CRC32 from "crc-32";
  *
  * @category Packets
  */
+/**
+ * Parse PrinterStatusData response (In_PrinterStatusData 0xB5, official getPrinterHardwareInfo).
+ * @category Packets
+ */
+export const parsePrinterStatusData = (data: Uint8Array): PrinterStatusData => {
+  let protocolVersion = 0;
+  let supportColor = 0;
+
+  let versionMajor: number | undefined;
+  let versionMinor: number | undefined;
+  let cacheRows: number | undefined;
+  let blockRows: number | undefined;
+
+  if (data.length >= 6) {
+    cacheRows = (data[2] << 8) | data[3];
+    blockRows = (data[4] << 8) | data[5];
+  }
+
+  if (data.length > 12) {
+    supportColor = data[10];
+    versionMajor = data[11];
+    versionMinor = data[12];
+
+    const n = data[11] * 100 + data[12];
+
+    if (n >= 204 && n < 300) {
+      protocolVersion = 3;
+    } else if (n < 300 || n >= 302) {
+      protocolVersion = n >= 302 ? 5 : 0;
+    } else {
+      protocolVersion = 4;
+    }
+  }
+
+  return {
+    supportColor,
+    protocolVersion,
+    versionMajor,
+    versionMinor,
+    cacheRows,
+    blockRows,
+    officialClass: officialPrinterClass(3, versionMajor, versionMinor),
+  };
+};
+
 /**
  * Parse HeartbeatAdvanced2 response (HeartbeatType 4, official cPrinterV4/V5/V6).
  * @category Packets
@@ -201,28 +246,8 @@ export class Abstraction {
   }
 
   public async getPrinterStatusData(): Promise<PrinterStatusData> {
-    let protocolVersion = 0;
     const packet = await this.send(PacketGenerator.getPrinterStatusData());
-    let supportColor = 0;
-
-    if (packet.dataLength > 12) {
-      supportColor = packet.data[10];
-
-      const n = packet.data[11] * 100 + packet.data[12];
-
-      if (n >= 204 && n < 300) {
-        protocolVersion = 3;
-      } else if (n < 300 || n >= 302) {
-        protocolVersion = n >= 302 ? 5 : 0;
-      } else {
-        protocolVersion = 4;
-      }
-    }
-
-    return {
-      supportColor,
-      protocolVersion,
-    };
+    return parsePrinterStatusData(packet.data);
   }
 
   public async getPrinterModel(): Promise<number> {

@@ -5,6 +5,7 @@ import { D110PrintTask } from "./D110PrintTask";
 import { OldD11PrintTask } from "./OldD11PrintTask";
 import { D110MV4PrintTask } from "./D110MV4PrintTask";
 import { H1SPrintTask } from "./H1SPrintTask";
+import { OfficialV6PrintTask } from "./OfficialV6PrintTask";
 
 /**
  * Define available print tasks.
@@ -17,6 +18,8 @@ export const printTasks = {
   B21_V1: B21V1PrintTask,
   D110M_V4: D110MV4PrintTask,
   H1S: H1SPrintTask,
+  /** Official SDK cPrinterV6 flow (experimental, not auto-selected) */
+  V6: OfficialV6PrintTask,
 };
 
 /**
@@ -73,4 +76,4 @@ export const findPrintTask = (model: M, protocolVersion?: number): PrintTaskName
 };
 
 export { AbstractPrintTask, PrintOptions } from "./AbstractPrintTask";
-export { B1PrintTask, B21V1PrintTask, D110PrintTask, OldD11PrintTask, D110MV4PrintTask,  };
+export { B1PrintTask, B21V1PrintTask, D110PrintTask, OldD11PrintTask, D110MV4PrintTask, OfficialV6PrintTask };
