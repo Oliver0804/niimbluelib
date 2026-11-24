@@ -13,7 +13,7 @@ import { AbstractPrintTask } from "./AbstractPrintTask";
  *   before sending the next block; the last (partial) block is acknowledged after PageEnd
  * - PrintEnd retried while the printer is busy (see {@link AbstractPrintTask.printEnd})
  *
- * Experimental: B1 Pro reports protocol 3.02 (→ V6 in the official SDK) but also prints fine with {@link B1PrintTask}.
+ * Experimental: B1 Pro reports protocol 3.02 (→ V6 in the official SDK); B1 and D110M_V4 tasks are also known to work.
  *
  * @category Print tasks
  */

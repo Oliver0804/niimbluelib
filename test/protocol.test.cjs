@@ -76,7 +76,7 @@ test("指令名稱：反查顯示官方名稱，舊名稱仍可用", () => {
   assert.equal(PacketGenerator.mapped(RequestCommandId.GetPaperParam).command, 0x59);
 });
 
-test("B1 Pro 預設列印任務為 B1（官方 cPrinterV4 結構）", () => {
-  assert.equal(findPrintTask(PrinterModel.B1_PRO), "B1");
+test("B1 Pro 預設列印任務維持原作者的 D110M_V4", () => {
+  assert.equal(findPrintTask(PrinterModel.B1_PRO), "D110M_V4");
   assert.equal(findPrintTask(PrinterModel.B21_PRO), "D110M_V4");
 });
